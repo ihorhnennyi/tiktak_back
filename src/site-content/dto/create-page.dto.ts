@@ -1,5 +1,27 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString, Matches, MaxLength } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  MaxLength,
+  ValidateNested,
+} from "class-validator";
+
+export class PageBlockDto {
+  @ApiProperty({ example: "text", enum: ["text", "wallet"] })
+  @IsString()
+  @IsIn(["text", "wallet"])
+  type!: "text" | "wallet";
+
+  @ApiProperty({ example: "Переведите на кошелек ниже" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
+  content!: string;
+}
 
 export class CreatePageDto {
   @ApiProperty({ example: "ua" })
@@ -8,24 +30,13 @@ export class CreatePageDto {
   @Matches(/^[a-z]{2}(?:-[A-Za-z0-9]+)?$/)
   locale!: string;
 
-  @ApiProperty({ example: "Title" })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(300)
-  title!: string;
-
-  @ApiProperty({ required: false })
-  @IsString()
-  @MaxLength(10000)
-  textBeforeWallet?: string;
-
-  @ApiProperty({ required: false })
-  @IsString()
-  @MaxLength(200)
-  wallet?: string;
-
-  @ApiProperty({ required: false })
-  @IsString()
-  @MaxLength(10000)
-  textAfterWallet?: string;
+  @ApiProperty({
+    type: [PageBlockDto],
+    required: true,
+    description: "Массив блоков контента",
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PageBlockDto)
+  blocks!: PageBlockDto[];
 }

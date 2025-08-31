@@ -12,78 +12,104 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { Request } from "express";
 import { CreatePageDto } from "./dto/create-page.dto";
 import { LocaleParamDto } from "./dto/locale-param.dto";
-import { UpdatePageDto } from "./dto/update-page.dto";
+import { PageBlockDto, UpdatePageDto } from "./dto/update-page.dto";
 import { SiteContentService } from "./site-content.service";
 
 function ok<T>(data: T) {
   return { success: true, data };
 }
 
-/* -------- ADMIN -------- */
 @ApiTags("Admin Content")
 @ApiBearerAuth()
 @UseGuards(AdminGuard)
-@Controller("admin/site-content") // => /api/admin/site-content
+@Controller("admin/site-content")
 export class SiteContentAdminController {
   constructor(private readonly svc: SiteContentService) {}
 
-  @ApiOperation({ summary: "Список локалей" })
   @Get("locales")
-  async list() {
+  @ApiOperation({ summary: "Список всех локалей" })
+  @ApiResponse({
+    status: 200,
+    description: "Успешный ответ с массивом локалей",
+  })
+  async listLocales() {
     return ok(await this.svc.listLocales());
   }
 
-  @ApiOperation({ summary: "Получить страницу локали (для формы)" })
   @Get(":locale")
-  async getOne(@Param() { locale }: LocaleParamDto) {
+  @ApiOperation({ summary: "Получить страницу локали (для админки)" })
+  @ApiResponse({ status: 200, description: "Успешный ответ со страницей" })
+  async getAdminPage(@Param() { locale }: LocaleParamDto) {
     return ok(await this.svc.getAdminPage(locale));
   }
 
-  @ApiOperation({ summary: "Создать локаль" })
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreatePageDto, @Req() req: Request) {
+  @ApiOperation({ summary: "Создать новую локаль" })
+  @ApiResponse({ status: 201, description: "Локаль создана" })
+  async createPage(@Body() dto: CreatePageDto, @Req() req: Request) {
     const ip = req.socket.remoteAddress ?? "Unknown";
-    return ok(await this.svc.createPage({ ...body, ip }));
+    return ok(await this.svc.createPage(dto.locale, dto.blocks, ip));
   }
 
-  @ApiOperation({ summary: "Изменить локаль (partial)" })
   @Patch(":locale")
-  async patch(
+  @ApiOperation({ summary: "Обновить массив блоков контента локали" })
+  @ApiResponse({ status: 200, description: "Контент успешно обновлён" })
+  async updateBlocks(
     @Param() { locale }: LocaleParamDto,
-    @Body() body: UpdatePageDto
+    @Body() { blocks }: UpdatePageDto
   ) {
-    return ok(await this.svc.updatePage(locale, body));
+    const validBlocks = (blocks ?? [])
+      .filter((b): b is Required<PageBlockDto> => !!b.type && !!b.content)
+      .map((b) => ({
+        type: b.type,
+        content: b.content,
+      }));
+
+    return ok(await this.svc.updatePage(locale, validBlocks));
   }
 
-  @ApiOperation({ summary: "Удалить локаль" })
   @Delete(":locale")
-  async remove(@Param() { locale }: LocaleParamDto) {
+  @ApiOperation({ summary: "Удалить локаль" })
+  @ApiResponse({ status: 200, description: "Локаль успешно удалена" })
+  async deletePage(@Param() { locale }: LocaleParamDto) {
     return ok(await this.svc.deletePage(locale));
   }
 }
 
-/* -------- PUBLIC -------- */
 @ApiTags("Public Content")
-@Controller("content") // => /api/content
+@Controller("content")
 export class SiteContentPublicController {
   constructor(private readonly svc: SiteContentService) {}
 
+  @Get("locales")
   @ApiOperation({ summary: "Публичный список локалей" })
-  @Get("locales") // разместить ВЫШЕ, чем :locale
-  async listPublic() {
+  @ApiResponse({
+    status: 200,
+    description: "Успешный ответ с массивом локалей",
+  })
+  async getPublicLocales() {
     return ok(await this.svc.listLocales());
   }
 
-  @ApiOperation({ summary: "Публичная страница по локали" })
   @Get(":locale")
-  async get(@Param() { locale }: LocaleParamDto) {
+  @ApiOperation({ summary: "Публичная страница по локали" })
+  @ApiResponse({ status: 200, description: "Успешный ответ со страницей" })
+  @ApiResponse({ status: 404, description: "Страница не найдена" })
+  async getPublicPage(@Param() { locale }: LocaleParamDto) {
     const page = await this.svc.getPublicPage(locale);
-    if (!page) return { success: false, error: "Not found" };
+    if (!page) {
+      return { success: false, error: "Not found" };
+    }
     return ok(page);
   }
 }
