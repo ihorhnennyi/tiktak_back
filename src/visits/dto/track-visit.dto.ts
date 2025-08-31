@@ -1,23 +1,6 @@
+import { toBoolean, toNumber } from "@/visits/utils/transform.utils";
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Transform } from "class-transformer";
 import { IsBoolean, IsNumber, IsOptional, IsString } from "class-validator";
-
-const toNumber = () =>
-  Transform(({ value }) => {
-    if (value === "" || value === null || value === undefined) return undefined;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : undefined;
-  });
-
-const toBoolean = () =>
-  Transform(({ value }) => {
-    if (value === "" || value === null || value === undefined) return undefined;
-    if (typeof value === "boolean") return value;
-    const v = String(value).toLowerCase().trim();
-    if (v === "true" || v === "1" || v === "yes") return true;
-    if (v === "false" || v === "0" || v === "no") return false;
-    return undefined;
-  });
 
 export class TrackVisitDto {
   @ApiPropertyOptional() @IsString() @IsOptional() ip?: string;
@@ -25,6 +8,7 @@ export class TrackVisitDto {
   @ApiPropertyOptional() @IsString() @IsOptional() origin?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() path?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() sessionId?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() mac?: string;
 
   @ApiPropertyOptional() @IsString() @IsOptional() userAgent?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() lang?: string;
@@ -59,4 +43,8 @@ export class TrackVisitDto {
   cookieEnabled?: boolean;
 
   @ApiPropertyOptional() @IsString() @IsOptional() connectionType?: string;
+
+  @ApiPropertyOptional() @IsString() @IsOptional() country?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() region?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() city?: string;
 }

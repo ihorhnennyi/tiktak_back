@@ -1,15 +1,12 @@
+// visits.service.ts
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, UpdateQuery } from "mongoose";
 import { GetVisitsQuery } from "./dto/get-visits.query";
 import { TrackVisitDto } from "./dto/track-visit.dto";
+import { exportVisitsCsv } from "./helpers/export-visits-csv";
 import { Visit, VisitDocument } from "./schemas/visit.schema";
-
-function definedOnly<T extends Record<string, any>>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined && v !== null)
-  ) as Partial<T>;
-}
+import { definedOnly } from "./utils/definedOnly";
 
 @Injectable()
 export class VisitsService {
@@ -50,27 +47,16 @@ export class VisitsService {
     });
   }
 
-  /** Старый простой список, если где-то нужен */
-  async getAll(): Promise<Visit[]> {
-    return this.visitModel
-      .find({}, null, { sort: { lastVisit: -1 } })
-      .lean()
-      .exec();
-  }
-
-  /** Новый поиск с фильтрами и курсором */
+  /** Поиск с фильтрами и курсором */
   async findMany(q: GetVisitsQuery) {
     const filter: FilterQuery<Visit> = {};
 
     if (q.ip) filter.ip = q.ip;
-
     if (q.from || q.to) filter.lastVisit = {};
     if (q.from) (filter.lastVisit as any).$gte = q.from;
     if (q.to) (filter.lastVisit as any).$lte = q.to;
-
-    if (q.cursor) {
+    if (q.cursor)
       filter.lastVisit = { ...(filter.lastVisit || {}), $lt: q.cursor };
-    }
 
     if (q.q) {
       const rx = { $regex: q.q, $options: "i" };
@@ -95,69 +81,10 @@ export class VisitsService {
     return { items, nextCursor };
   }
 
+  /** Экспорт CSV (учитывает те же фильтры, до 10k строк) */
   async exportCsv(q: GetVisitsQuery) {
     const { items } = await this.findMany({ ...q, limit: 10000 });
-    const header = [
-      "ip",
-      "lastVisit",
-      "visitsCount",
-      "isBlocked",
-      "userAgent",
-      "lang",
-      "timezone",
-      "screen",
-      "platform",
-      "referrer",
-      "memory",
-      "cores",
-      "online",
-      "secure",
-      "connectionType",
-      "maxTouchPoints",
-      "cookieEnabled",
-      "socketId",
-      "pageId",
-      "createdAt",
-      "updatedAt",
-    ];
-    const lines = [header.join(",")];
-    const esc = (v: any) => {
-      if (v === undefined || v === null) return "";
-      const s = String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    for (const it of items) {
-      lines.push(
-        [
-          esc(it.ip),
-          esc(
-            (it as any).lastVisit instanceof Date
-              ? (it as any).lastVisit.toISOString()
-              : it.lastVisit
-          ),
-          esc(it.visitsCount),
-          esc(it.isBlocked),
-          esc(it.userAgent),
-          esc(it.lang),
-          esc(it.timezone),
-          esc(it.screen),
-          esc(it.platform),
-          esc(it.referrer),
-          esc(it.memory),
-          esc(it.cores),
-          esc(it.online),
-          esc(it.secure),
-          esc(it.connectionType),
-          esc(it.maxTouchPoints),
-          esc(it.cookieEnabled),
-          esc(it.socketId),
-          esc(it.pageId),
-          esc((it as any).createdAt),
-          esc((it as any).updatedAt),
-        ].join(",")
-      );
-    }
-    return lines.join("\n");
+    return exportVisitsCsv(items);
   }
 
   async setBlockState(
@@ -170,6 +97,41 @@ export class VisitsService {
       { $set: { isBlocked } },
       { new: true }
     );
+  }
+
+  async setBlockStateByIp(ip: string, isBlocked: boolean) {
+    if (!ip) return { matched: 0, modified: 0 };
+    const res = await this.visitModel.updateMany(
+      { ip },
+      { $set: { isBlocked } }
+    );
+    const modified = (res as any).modifiedCount ?? (res as any).nModified ?? 0;
+    const matched = (res as any).matchedCount ?? (res as any).n ?? 0;
+    return { matched, modified };
+  }
+
+  async setBlockStateByIps(ips: string[], isBlocked: boolean) {
+    if (!Array.isArray(ips) || ips.length === 0)
+      return { matched: 0, modified: 0 };
+    const res = await this.visitModel.updateMany(
+      { ip: { $in: ips } },
+      { $set: { isBlocked } }
+    );
+    const modified = (res as any).modifiedCount ?? (res as any).nModified ?? 0;
+    const matched = (res as any).matchedCount ?? (res as any).n ?? 0;
+    return { matched, modified };
+  }
+
+  async setBlockStateBySocketIds(socketIds: string[], isBlocked: boolean) {
+    if (!Array.isArray(socketIds) || socketIds.length === 0)
+      return { matched: 0, modified: 0 };
+    const res = await this.visitModel.updateMany(
+      { socketId: { $in: socketIds } },
+      { $set: { isBlocked } }
+    );
+    const modified = (res as any).modifiedCount ?? (res as any).nModified ?? 0;
+    const matched = (res as any).matchedCount ?? (res as any).n ?? 0;
+    return { matched, modified };
   }
 
   async saveCookies(socketId: string, cookies: string) {

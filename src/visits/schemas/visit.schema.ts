@@ -6,6 +6,12 @@ export type VisitDocument = HydratedDocument<Visit>;
 @Schema({ timestamps: true, versionKey: false })
 export class Visit {
   @Prop({ index: true, trim: true }) ip!: string;
+  @Prop({ trim: true }) mac?: string;
+  @Prop({ trim: true }) sessionId?: string;
+  @Prop({ trim: true }) siteId?: string;
+
+  @Prop({ trim: true }) origin?: string;
+  @Prop({ trim: true }) path?: string;
 
   @Prop({ trim: true }) userAgent?: string;
   @Prop({ trim: true }) lang?: string;
@@ -29,13 +35,26 @@ export class Visit {
   @Prop({ default: false, index: true }) isBlocked!: boolean;
 
   @Prop({ trim: true }) cookies?: string;
-
-  @Prop({ default: Date.now, index: true }) lastVisit!: Date;
+  @Prop({ index: true }) lastVisit!: Date;
   @Prop({ trim: true, index: true }) pageId?: string;
+
+  @Prop({ trim: true }) country?: string;
+  @Prop({ trim: true }) region?: string;
+  @Prop({ trim: true }) city?: string;
+
+  @Prop()
+  createdAt?: Date;
+
+  @Prop()
+  updatedAt?: Date;
 }
 
 export const VisitSchema = SchemaFactory.createForClass(Visit);
-VisitSchema.index({ lastVisit: -1 });
+
+VisitSchema.index({ ip: 1, lastVisit: -1 });
 VisitSchema.index({ ip: 1, socketId: 1 });
 VisitSchema.index({ ip: 1, pageId: 1 });
-VisitSchema.index({ ip: 1, lastVisit: -1 });
+VisitSchema.index({ sessionId: 1 });
+VisitSchema.index({ socketId: 1, isBlocked: 1 });
+VisitSchema.index({ siteId: 1, ip: 1 });
+VisitSchema.index({ lastVisit: -1 });

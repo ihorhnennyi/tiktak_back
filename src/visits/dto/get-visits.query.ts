@@ -1,20 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Transform } from "class-transformer";
 import { IsDate, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
-
-const toDate = () =>
-  Transform(({ value }) => {
-    if (!value) return undefined;
-    const d = new Date(value);
-    return isNaN(+d) ? undefined : d;
-  });
-
-const toInt = () =>
-  Transform(({ value }) => {
-    if (value === undefined || value === null || value === "") return undefined;
-    const n = Number(value);
-    return Number.isInteger(n) ? n : undefined;
-  });
+import { toDate, toNumber } from "../utils/transform.utils";
 
 export class GetVisitsQuery {
   @ApiPropertyOptional({
@@ -25,7 +11,10 @@ export class GetVisitsQuery {
   @IsOptional()
   q?: string;
 
-  @ApiPropertyOptional({ description: "Фильтр по IP", example: "127.0.0.1" })
+  @ApiPropertyOptional({
+    description: "Фильтр по IP",
+    example: "127.0.0.1",
+  })
   @IsString()
   @IsOptional()
   ip?: string;
@@ -50,16 +39,20 @@ export class GetVisitsQuery {
 
   @ApiPropertyOptional({
     description: "Курсор (ISO-время lastVisit) для следующей страницы",
+    example: "2025-08-28T15:45:00Z",
   })
   @IsDate()
   @IsOptional()
   @toDate()
   cursor?: Date;
 
-  @ApiPropertyOptional({ description: "Размер страницы (1..200)", default: 50 })
+  @ApiPropertyOptional({
+    description: "Размер страницы (1..200)",
+    default: 50,
+  })
   @IsInt()
   @IsOptional()
-  @toInt()
+  @toNumber()
   @Min(1)
   @Max(200)
   limit?: number;
