@@ -1,5 +1,4 @@
-// visits.service.ts
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, UpdateQuery } from "mongoose";
 import { GetVisitsQuery } from "./dto/get-visits.query";
@@ -47,7 +46,6 @@ export class VisitsService {
     });
   }
 
-  /** Поиск с фильтрами и курсором */
   async findMany(q: GetVisitsQuery) {
     const filter: FilterQuery<Visit> = {};
 
@@ -81,7 +79,6 @@ export class VisitsService {
     return { items, nextCursor };
   }
 
-  /** Экспорт CSV (учитывает те же фильтры, до 10k строк) */
   async exportCsv(q: GetVisitsQuery) {
     const { items } = await this.findMany({ ...q, limit: 10000 });
     return exportVisitsCsv(items);
@@ -155,5 +152,67 @@ export class VisitsService {
   async getByIp(ip: string): Promise<Visit | null> {
     if (!ip) return null;
     return this.visitModel.findOne({ ip });
+  }
+
+  async blockAll() {
+    const res = await this.visitModel.updateMany(
+      {},
+      { $set: { isBlocked: true } }
+    );
+    return {
+      matched: (res as any).matchedCount ?? (res as any).n ?? 0,
+      modified: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
+    };
+  }
+
+  async unblockAll() {
+    const res = await this.visitModel.updateMany(
+      {},
+      { $set: { isBlocked: false } }
+    );
+    return {
+      matched: (res as any).matchedCount ?? (res as any).n ?? 0,
+      modified: (res as any).modifiedCount ?? (res as any).nModified ?? 0,
+    };
+  }
+
+  async blockBySocketId(socketId: string) {
+    const visit = await this.visitModel.findOneAndUpdate(
+      { socketId },
+      { $set: { isBlocked: true } },
+      { new: true }
+    );
+    if (!visit) throw new NotFoundException("Visit not found");
+    return visit;
+  }
+
+  async unblockBySocketId(socketId: string) {
+    const visit = await this.visitModel.findOneAndUpdate(
+      { socketId },
+      { $set: { isBlocked: false } },
+      { new: true }
+    );
+    if (!visit) throw new NotFoundException("Visit not found");
+    return visit;
+  }
+
+  async blockByIp(ip: string) {
+    const visit = await this.visitModel.findOneAndUpdate(
+      { ip },
+      { $set: { isBlocked: true } },
+      { new: true }
+    );
+    if (!visit) throw new NotFoundException("Visit not found");
+    return visit;
+  }
+
+  async unblockByIp(ip: string) {
+    const visit = await this.visitModel.findOneAndUpdate(
+      { ip },
+      { $set: { isBlocked: false } },
+      { new: true }
+    );
+    if (!visit) throw new NotFoundException("Visit not found");
+    return visit;
   }
 }

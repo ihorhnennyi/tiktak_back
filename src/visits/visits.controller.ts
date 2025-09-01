@@ -17,6 +17,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -134,5 +135,71 @@ export class VisitsController {
   async saveCookies(@Body() body: SaveCookiesDto) {
     await this.visitsService.saveCookies(body.socketId, body.cookies);
     return ok({ message: "Cookies saved" });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("block-all")
+  @ApiOperation({ summary: "Заблокировать все визиты" })
+  @ApiResponse({ status: 200, description: "Все визиты заблокированы" })
+  @HttpCode(HttpStatus.OK)
+  async blockAll() {
+    const result = await this.visitsService.blockAll();
+    return ok({ message: "All visits blocked", ...result });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("unblock-all")
+  @ApiOperation({ summary: "Разблокировать все визиты" })
+  @ApiResponse({ status: 200, description: "Все визиты разблокированы" })
+  @HttpCode(HttpStatus.OK)
+  async unblockAll() {
+    const result = await this.visitsService.unblockAll();
+    return ok({ message: "All visits unblocked", ...result });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("block/socket/:socketId")
+  @ApiOperation({ summary: "Заблокировать визит по socketId" })
+  @ApiParam({ name: "socketId", required: true })
+  @ApiResponse({ status: 200, description: "Визит заблокирован" })
+  async blockSocket(@Param("socketId") socketId: string) {
+    const result = await this.visitsService.blockBySocketId(socketId);
+    return ok(result);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("unblock/socket/:socketId")
+  @ApiOperation({ summary: "Разблокировать визит по socketId" })
+  @ApiParam({ name: "socketId", required: true })
+  @ApiResponse({ status: 200, description: "Визит разблокирован" })
+  async unblockSocket(@Param("socketId") socketId: string) {
+    const result = await this.visitsService.unblockBySocketId(socketId);
+    return ok(result);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("block/ip/:ip")
+  @ApiOperation({ summary: "Заблокировать визит по IP" })
+  @ApiParam({ name: "ip", required: true })
+  @ApiResponse({ status: 200, description: "Визит заблокирован" })
+  async blockIp(@Param("ip") ip: string) {
+    const result = await this.visitsService.blockByIp(ip);
+    return ok(result);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  @Post("unblock/ip/:ip")
+  @ApiOperation({ summary: "Разблокировать визит по IP" })
+  @ApiParam({ name: "ip", required: true })
+  @ApiResponse({ status: 200, description: "Визит разблокирован" })
+  async unblockIp(@Param("ip") ip: string) {
+    const result = await this.visitsService.unblockByIp(ip);
+    return ok(result);
   }
 }
